@@ -1,6 +1,7 @@
 package com.pecunia.pecunia.service;
 
-import com.pecunia.pecunia.dto.request.LoginRequest;
+import com.pecunia.pecunia.dto.LoginRequest;
+import com.pecunia.pecunia.dto.LoginResponse;
 import com.pecunia.pecunia.dto.request.UserRegistrationRequest;
 import com.pecunia.pecunia.dto.response.AuthResponse;
 import com.pecunia.pecunia.entity.User;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +25,7 @@ public class AuthService {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final AuthenticationManager authenticationManager;
-  private final JwtTokenProvider jwtTokenProvider;
+  private final JwtTokenProvider tokenProvider;
 
   @Transactional
   public AuthResponse register(UserRegistrationRequest request) {
@@ -41,20 +43,28 @@ public class AuthService {
 
     user = userRepository.save(user);
 
-    String token = jwtTokenProvider.generateToken(user);
+    // Criar autenticação para o usuário recém-registrado
+    Authentication authentication = authenticationManager.authenticate(
+        new UsernamePasswordAuthenticationToken(
+            request.getEmail(),
+            request.getPassword()));
+
+    String token = tokenProvider.generateToken(authentication);
     return new AuthResponse(token, "Bearer", user.getId(), user.getName(), user.getEmail());
   }
 
-  public AuthResponse login(LoginRequest request) {
+  public LoginResponse login(LoginRequest loginRequest) {
     Authentication authentication = authenticationManager.authenticate(
-        new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        new UsernamePasswordAuthenticationToken(
+            loginRequest.getEmail(),
+            loginRequest.getPassword()));
 
-    User user = (User) authentication.getPrincipal();
-    String token = jwtTokenProvider.generateToken(user);
+    SecurityContextHolder.getContext().setAuthentication(authentication);
+    String jwt = tokenProvider.generateToken(authentication);
 
-    user.setLastLogin(LocalDateTime.now());
-    userRepository.save(user);
+    User user = userRepository.findByEmail(loginRequest.getEmail())
+        .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-    return new AuthResponse(token, "Bearer", user.getId(), user.getName(), user.getEmail());
+    return new LoginResponse(jwt, "Bearer", user.getId(), user.getName(), user.getEmail());
   }
 }

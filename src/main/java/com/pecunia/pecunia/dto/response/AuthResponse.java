@@ -13,7 +13,7 @@ public class AuthResponse {
   private String token;
 
   @Schema(description = "Tipo do token", example = "Bearer")
-  private String type = "Bearer";
+  private String type;
 
   @Schema(description = "ID do usuário", example = "1")
   private Long userId;

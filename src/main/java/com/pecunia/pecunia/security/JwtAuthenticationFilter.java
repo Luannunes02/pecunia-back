@@ -10,7 +10,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -19,37 +18,58 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  private final JwtTokenProvider tokenProvider;
+  private final JwtService jwtService;
   private final CustomUserDetailsService userDetailsService;
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-      throws ServletException, IOException {
+  protected void doFilterInternal(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      FilterChain filterChain) throws ServletException, IOException {
+
     try {
-      String jwt = getJwtFromRequest(request);
+      final String authHeader = request.getHeader("Authorization");
+      final String jwt;
+      final String userEmail;
 
-      if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-        String email = tokenProvider.getEmailFromToken(jwt);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-            userDetails, null, userDetails.getAuthorities());
-        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+      if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        filterChain.doFilter(request, response);
+        return;
       }
-    } catch (Exception ex) {
-      logger.error("Não foi possível autenticar o usuário", ex);
-    }
 
-    filterChain.doFilter(request, response);
+      jwt = authHeader.substring(7);
+      userEmail = jwtService.extractUsername(jwt);
+
+      if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+
+        if (jwtService.isTokenValid(jwt, userDetails)) {
+          UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+              userDetails,
+              null,
+              userDetails.getAuthorities());
+
+          authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+          SecurityContextHolder.getContext().setAuthentication(authToken);
+        }
+      }
+
+      filterChain.doFilter(request, response);
+    } catch (Exception e) {
+      logger.error("Erro ao processar token JWT: " + e.getMessage());
+      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      response.getWriter().write("Token inválido ou expirado");
+    }
   }
 
-  private String getJwtFromRequest(HttpServletRequest request) {
-    String bearerToken = request.getHeader("Authorization");
-    if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-      return bearerToken.substring(7);
-    }
-    return null;
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    String path = request.getRequestURI();
+    return path.startsWith("/api/auth/") || 
+           path.startsWith("/v3/api-docs") || 
+           path.startsWith("/swagger-ui") || 
+           path.startsWith("/swagger-resources") || 
+           path.startsWith("/webjars") || 
+           path.startsWith("/error");
   }
 }

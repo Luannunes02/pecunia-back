@@ -2,6 +2,7 @@ package com.pecunia.pecunia.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -35,6 +36,7 @@ public class Budget {
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
 
+  @JsonBackReference
   @ManyToOne
   @JoinColumn(name = "category_id", nullable = false)
   private Category category;

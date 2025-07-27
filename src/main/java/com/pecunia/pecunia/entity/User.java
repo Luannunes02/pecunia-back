@@ -2,6 +2,7 @@ package com.pecunia.pecunia.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,6 +14,7 @@ import java.util.List;
 @Data
 @Entity
 @Table(name = "users")
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class User implements UserDetails {
 
   @Id
@@ -41,15 +43,19 @@ public class User implements UserDetails {
   private Boolean isActive = true;
 
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+  @JsonIgnoreProperties("user")
   private List<Account> accounts;
 
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+  @JsonIgnoreProperties("user")
   private List<Category> categories;
 
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+  @JsonIgnoreProperties("user")
   private List<Budget> budgets;
 
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+  @JsonIgnoreProperties("user")
   private List<Goal> goals;
 
   @PrePersist
