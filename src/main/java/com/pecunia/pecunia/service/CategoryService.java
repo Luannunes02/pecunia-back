@@ -37,7 +37,7 @@ public class CategoryService {
   public List<Category> getCategories(String userEmail) {
     User user = userRepository.findByEmail(userEmail)
         .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-    return categoryRepository.findByUser(user);
+    return categoryRepository.findByUserAndIsActiveTrue(user);
   }
 
   public List<Category> getCategoriesByType(String userEmail, String type) {

@@ -3,6 +3,7 @@ package com.pecunia.pecunia.controller;
 import com.pecunia.pecunia.dto.request.AccountRequest;
 import com.pecunia.pecunia.entity.Account;
 import com.pecunia.pecunia.service.AccountService;
+import com.pecunia.pecunia.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,20 +21,24 @@ import java.util.List;
 public class AccountController {
 
   private final AccountService accountService;
+  private final UserService userService;
 
   @PostMapping
   @Operation(summary = "Criar uma nova conta")
   public ResponseEntity<Account> createAccount(
       @Valid @RequestBody AccountRequest request,
       Authentication authentication) {
-    Account account = accountService.createAccount(request, authentication.getName());
+
+    String email = authentication.getName();
+    Account account = accountService.createAccount(request, email);
     return ResponseEntity.ok(account);
   }
 
   @GetMapping
   @Operation(summary = "Listar todas as contas do usuário")
   public ResponseEntity<List<Account>> getAccounts(Authentication authentication) {
-    List<Account> accounts = accountService.getAccounts(authentication.getName());
+    String email = authentication.getName();
+    List<Account> accounts = accountService.getAccounts(email);
     return ResponseEntity.ok(accounts);
   }
 
@@ -43,7 +48,9 @@ public class AccountController {
       @PathVariable Long id,
       @Valid @RequestBody AccountRequest request,
       Authentication authentication) {
-    Account account = accountService.updateAccount(id, request, authentication.getName());
+
+    String email = authentication.getName();
+    Account account = accountService.updateAccount(id, request, email);
     return ResponseEntity.ok(account);
   }
 
@@ -52,7 +59,9 @@ public class AccountController {
   public ResponseEntity<Void> deleteAccount(
       @PathVariable Long id,
       Authentication authentication) {
-    accountService.deleteAccount(id, authentication.getName());
+
+    String email = authentication.getName();
+    accountService.deleteAccount(id, email);
     return ResponseEntity.noContent().build();
   }
 }

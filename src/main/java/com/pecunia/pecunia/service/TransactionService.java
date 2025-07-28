@@ -1,6 +1,9 @@
 package com.pecunia.pecunia.service;
 
 import com.pecunia.pecunia.dto.TransactionDTO;
+import com.pecunia.pecunia.dto.response.AccountResponseDTO;
+import com.pecunia.pecunia.dto.response.CategoryResponseDTO;
+import com.pecunia.pecunia.dto.response.TransactionResponseDTO;
 import com.pecunia.pecunia.entity.Account;
 import com.pecunia.pecunia.entity.Category;
 import com.pecunia.pecunia.entity.Transaction;
@@ -8,7 +11,7 @@ import com.pecunia.pecunia.entity.User;
 import com.pecunia.pecunia.repository.AccountRepository;
 import com.pecunia.pecunia.repository.CategoryRepository;
 import com.pecunia.pecunia.repository.TransactionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,83 +20,75 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class TransactionService {
 
-  @Autowired
-  private TransactionRepository transactionRepository;
-
-  @Autowired
-  private AccountRepository accountRepository;
-
-  @Autowired
-  private CategoryRepository categoryRepository;
+  private final TransactionRepository transactionRepository;
+  private final AccountRepository accountRepository;
+  private final CategoryRepository categoryRepository;
 
   @Transactional
-  public Transaction createTransaction(TransactionDTO transactionDTO, User user) {
+  public Transaction createTransaction(TransactionDTO dto, User user) {
     Transaction transaction = new Transaction();
-    transaction.setDescription(transactionDTO.getDescription());
-    transaction.setAmount(transactionDTO.getAmount());
-    transaction.setTransactionDate(transactionDTO.getTransactionDate());
-    transaction.setType(transactionDTO.getType());
-    transaction.setDueDate(transactionDTO.getDueDate());
-    transaction.setIsPaid(transactionDTO.getIsPaid());
-    transaction.setIsRecurring(transactionDTO.getIsRecurring());
-    transaction.setRecurringFrequency(transactionDTO.getRecurringFrequency());
+    mapDtoToTransaction(dto, transaction);
 
-    Account account = accountRepository.findById(transactionDTO.getAccountId())
+    transaction.setUser(user);
+
+    Account account = accountRepository.findById(dto.getAccountId())
         .orElseThrow(() -> new RuntimeException("Account not found"));
     transaction.setAccount(account);
 
-    Category category = categoryRepository.findById(transactionDTO.getCategoryId())
+    Category category = categoryRepository.findById(dto.getCategoryId())
         .orElseThrow(() -> new RuntimeException("Category not found"));
     transaction.setCategory(category);
 
-    // Update account balance
-    updateAccountBalance(account, transactionDTO.getAmount(), transactionDTO.getType());
+    updateAccountBalance(account, dto.getAmount(), dto.getType());
 
     return transactionRepository.save(transaction);
   }
 
-  public List<Transaction> getTransactionsByUser(User user) {
-    return transactionRepository.findByAccount_UserOrderByTransactionDateDesc(user);
+  @Transactional(readOnly = true)
+  public List<TransactionResponseDTO> getTransactionsByUser(User user) {
+    return transactionRepository.findByAccount_UserOrderByTransactionDateDesc(user)
+        .stream()
+        .map(this::toResponseDTO)
+        .toList();
   }
 
-  public List<Transaction> getTransactionsByUserAndDateRange(User user, LocalDateTime startDate,
-      LocalDateTime endDate) {
-    return transactionRepository.findByAccount_UserAndTransactionDateBetweenOrderByTransactionDateDesc(user, startDate,
-        endDate);
+  @Transactional(readOnly = true)
+  public List<TransactionResponseDTO> getTransactionsByUserAndDateRange(User user, LocalDateTime start,
+      LocalDateTime end) {
+    return transactionRepository.findByAccount_UserAndTransactionDateBetweenOrderByTransactionDateDesc(user, start, end)
+        .stream()
+        .map(this::toResponseDTO)
+        .toList();
   }
 
   @Transactional
-  public Transaction updateTransaction(Long id, TransactionDTO transactionDTO, User user) {
+  public Transaction updateTransaction(Long id, TransactionDTO dto, User user) {
     Transaction transaction = transactionRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Transaction not found"));
 
-    // Verify if the transaction belongs to the user
     if (!transaction.getAccount().getUser().getId().equals(user.getId())) {
       throw new RuntimeException("Transaction does not belong to user");
     }
 
-    // Update account balance (reverse old transaction and apply new one)
+    // Reverte o saldo antigo
     updateAccountBalance(transaction.getAccount(), transaction.getAmount().negate(), transaction.getType());
-    updateAccountBalance(transaction.getAccount(), transactionDTO.getAmount(), transactionDTO.getType());
 
-    transaction.setDescription(transactionDTO.getDescription());
-    transaction.setAmount(transactionDTO.getAmount());
-    transaction.setTransactionDate(transactionDTO.getTransactionDate());
-    transaction.setType(transactionDTO.getType());
-    transaction.setDueDate(transactionDTO.getDueDate());
-    transaction.setIsPaid(transactionDTO.getIsPaid());
-    transaction.setIsRecurring(transactionDTO.getIsRecurring());
-    transaction.setRecurringFrequency(transactionDTO.getRecurringFrequency());
+    // Atualiza campos
+    mapDtoToTransaction(dto, transaction);
 
-    Account account = accountRepository.findById(transactionDTO.getAccountId())
+    Account account = accountRepository.findById(dto.getAccountId())
         .orElseThrow(() -> new RuntimeException("Account not found"));
     transaction.setAccount(account);
 
-    Category category = categoryRepository.findById(transactionDTO.getCategoryId())
+    Category category = categoryRepository.findById(dto.getCategoryId())
         .orElseThrow(() -> new RuntimeException("Category not found"));
     transaction.setCategory(category);
+
+    // Aplica o saldo novo
+    updateAccountBalance(account, dto.getAmount(), dto.getType());
 
     return transactionRepository.save(transaction);
   }
@@ -103,21 +98,60 @@ public class TransactionService {
     Transaction transaction = transactionRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Transaction not found"));
 
-    // Verify if the transaction belongs to the user
     if (!transaction.getAccount().getUser().getId().equals(user.getId())) {
       throw new RuntimeException("Transaction does not belong to user");
     }
 
-    // Update account balance (reverse the transaction)
     updateAccountBalance(transaction.getAccount(), transaction.getAmount().negate(), transaction.getType());
 
     transactionRepository.delete(transaction);
   }
 
+  private void mapDtoToTransaction(TransactionDTO dto, Transaction transaction) {
+    transaction.setDescription(dto.getDescription());
+    transaction.setAmount(dto.getAmount());
+    transaction.setTransactionDate(dto.getTransactionDate());
+    transaction.setType(dto.getType());
+    transaction.setDueDate(dto.getDueDate());
+    transaction.setIsPaid(dto.getIsPaid());
+    transaction.setIsRecurring(dto.getIsRecurring());
+    transaction.setRecurringFrequency(dto.getRecurringFrequency());
+  }
+
+  private TransactionResponseDTO toResponseDTO(Transaction transaction) {
+    TransactionResponseDTO dto = new TransactionResponseDTO();
+    dto.setId(transaction.getId());
+    dto.setDescription(transaction.getDescription());
+    dto.setAmount(transaction.getAmount());
+    dto.setTransactionDate(transaction.getTransactionDate());
+    dto.setType(transaction.getType());
+    dto.setDueDate(transaction.getDueDate());
+    dto.setIsPaid(transaction.getIsPaid());
+    dto.setIsRecurring(transaction.getIsRecurring());
+    dto.setRecurringFrequency(transaction.getRecurringFrequency());
+    dto.setAccountId(transaction.getAccount().getId());
+    dto.setCategoryId(transaction.getCategory().getId());
+
+    AccountResponseDTO accountDTO = new AccountResponseDTO();
+    accountDTO.setId(transaction.getAccount().getId());
+    accountDTO.setName(transaction.getAccount().getName());
+    accountDTO.setType(transaction.getAccount().getType());
+    accountDTO.setBalance(transaction.getAccount().getBalance());
+    dto.setAccount(accountDTO);
+
+    CategoryResponseDTO categoryDTO = new CategoryResponseDTO();
+    categoryDTO.setId(transaction.getCategory().getId());
+    categoryDTO.setName(transaction.getCategory().getName());
+    categoryDTO.setType(transaction.getCategory().getType());
+    dto.setCategory(categoryDTO);
+
+    return dto;
+  }
+
   private void updateAccountBalance(Account account, BigDecimal amount, String type) {
-    if ("EXPENSE".equals(type)) {
+    if ("EXPENSE".equalsIgnoreCase(type)) {
       account.setBalance(account.getBalance().subtract(amount));
-    } else if ("INCOME".equals(type)) {
+    } else if ("INCOME".equalsIgnoreCase(type)) {
       account.setBalance(account.getBalance().add(amount));
     }
     accountRepository.save(account);

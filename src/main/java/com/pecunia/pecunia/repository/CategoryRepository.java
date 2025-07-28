@@ -12,4 +12,6 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
   List<Category> findByUser(User user);
 
   List<Category> findByUserAndType(User user, String type);
+
+  List<Category> findByUserAndIsActiveTrue(User user);
 }

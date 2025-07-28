@@ -22,7 +22,10 @@ public class DashboardController {
   @GetMapping
   @Operation(summary = "Obter dados do dashboard")
   public ResponseEntity<DashboardResponse> getDashboardData(Authentication authentication) {
-    DashboardResponse data = dashboardService.getDashboardData(authentication.getName());
+    String userEmail = authentication.getName();
+
+    DashboardResponse data = dashboardService.getDashboardData(userEmail);
+
     return ResponseEntity.ok(data);
   }
 }

@@ -1,6 +1,7 @@
 package com.pecunia.pecunia.controller;
 
 import com.pecunia.pecunia.dto.TransactionDTO;
+import com.pecunia.pecunia.dto.response.TransactionResponseDTO;
 import com.pecunia.pecunia.entity.Transaction;
 import com.pecunia.pecunia.entity.User;
 import com.pecunia.pecunia.service.TransactionService;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -28,26 +30,26 @@ public class TransactionController {
   @Operation(summary = "Criar uma nova transação")
   public ResponseEntity<Transaction> createTransaction(
       @Valid @RequestBody TransactionDTO transactionDTO,
-      @RequestHeader("Authorization") String token) {
-    User user = userService.getUserFromToken(token);
+      Authentication authentication) {
+
+    User user = userService.findByEmail(authentication.getName());
     return ResponseEntity.ok(transactionService.createTransaction(transactionDTO, user));
   }
 
   @GetMapping
   @Operation(summary = "Listar todas as transações do usuário")
-  public ResponseEntity<List<Transaction>> getTransactions(
-      @RequestHeader("Authorization") String token) {
-    User user = userService.getUserFromToken(token);
+  public ResponseEntity<List<TransactionResponseDTO>> getTransactions(Authentication authentication) {
+    User user = userService.findByEmail(authentication.getName());
     return ResponseEntity.ok(transactionService.getTransactionsByUser(user));
   }
 
   @GetMapping("/filter")
   @Operation(summary = "Listar transações por período")
-  public ResponseEntity<List<Transaction>> getTransactionsByDateRange(
+  public ResponseEntity<List<TransactionResponseDTO>> getTransactionsByDateRange(
       @RequestParam LocalDateTime startDate,
       @RequestParam LocalDateTime endDate,
-      @RequestHeader("Authorization") String token) {
-    User user = userService.getUserFromToken(token);
+      Authentication authentication) {
+    User user = userService.findByEmail(authentication.getName());
     return ResponseEntity.ok(transactionService.getTransactionsByUserAndDateRange(user, startDate, endDate));
   }
 
@@ -56,8 +58,8 @@ public class TransactionController {
   public ResponseEntity<Transaction> updateTransaction(
       @PathVariable Long id,
       @Valid @RequestBody TransactionDTO transactionDTO,
-      @RequestHeader("Authorization") String token) {
-    User user = userService.getUserFromToken(token);
+      Authentication authentication) {
+    User user = userService.findByEmail(authentication.getName());
     return ResponseEntity.ok(transactionService.updateTransaction(id, transactionDTO, user));
   }
 
@@ -65,8 +67,8 @@ public class TransactionController {
   @Operation(summary = "Excluir uma transação")
   public ResponseEntity<Void> deleteTransaction(
       @PathVariable Long id,
-      @RequestHeader("Authorization") String token) {
-    User user = userService.getUserFromToken(token);
+      Authentication authentication) {
+    User user = userService.findByEmail(authentication.getName());
     transactionService.deleteTransaction(id, user);
     return ResponseEntity.noContent().build();
   }

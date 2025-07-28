@@ -1,17 +1,13 @@
-package com.pecunia.pecunia.dto;
+package com.pecunia.pecunia.dto.response;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.Data;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-public class TransactionDTO {
+@Data
+public class TransactionResponseDTO {
+  private Long id;
   private String description;
   private BigDecimal amount;
   private LocalDateTime transactionDate;
@@ -22,5 +18,6 @@ public class TransactionDTO {
   private String recurringFrequency;
   private Long accountId;
   private Long categoryId;
-  private Long destinationAccountId;
+  private AccountResponseDTO account;
+  private CategoryResponseDTO category;
 }
