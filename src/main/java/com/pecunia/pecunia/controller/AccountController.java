@@ -3,7 +3,6 @@ package com.pecunia.pecunia.controller;
 import com.pecunia.pecunia.dto.request.AccountRequest;
 import com.pecunia.pecunia.entity.Account;
 import com.pecunia.pecunia.service.AccountService;
-import com.pecunia.pecunia.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,7 +20,6 @@ import java.util.List;
 public class AccountController {
 
   private final AccountService accountService;
-  private final UserService userService;
 
   @PostMapping
   @Operation(summary = "Criar uma nova conta")
